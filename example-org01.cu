@@ -16,28 +16,31 @@
     printf("Error at %s:%d\n",__FILE__,__LINE__); \
     return EXIT_FAILURE;}} while(0)
 
+__global__ void setup_kernel(curandState *state)
+{
+    int id = threadIdx.x + blockIdx.x * 64;
+    /* Each thread gets same seed, a different sequence 
+       number, no offset */
+    curand_init(1234, id, 0, &state[id]);
+    //curand_init(id, 0, 0, &state[id]);
+}
 
 __global__ void generate_normal_kernel(curandState *state,
                                 int n, 
                                 float *result)
 {
-
-  int id = threadIdx.x + blockIdx.x * 64;
-  float x;
-
-  // setup kernel
-  curand_init(1234,id,0,&state[id]);
-
-  /* Copy state to local memory for efficiency */
-  curandState localState = state[id];
-  /* Generate pseudo-random normals */
-  for(int i = 0; i < n; i++) {
-    x = curand_normal(&localState);
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] = x;
+    int id = threadIdx.x + blockIdx.x * 64;
+    float x;
+    /* Copy state to local memory for efficiency */
+    curandState localState = state[id];
+    /* Generate pseudo-random normals */
+    for(int i = 0; i < n; i++) {
+        x = curand_normal(&localState);
+    }
+    /* Copy state back to global memory */
+    state[id] = localState;
+    /* Store results */
+    result[id] = x;
 }
 
 
@@ -77,6 +80,9 @@ int main(int argc, char *argv[])
     /* Allocate space for prng states on device */
     CUDA_CALL(cudaMalloc((void **)&devStates, 64 * 64 * 
                   sizeof(curandState)));
+    
+    /* Setup prng states */
+    setup_kernel<<<64, 64>>>(devStates);
     
     /* Set results to 0 */
     CUDA_CALL(cudaMemset(devResults, 0, 64 * 64 * 

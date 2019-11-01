@@ -21,3 +21,6 @@ f.close()
 # plot
 plt.hist(data,bins=100)
 plt.show()
+
+# remove cache
+os.system("rm -f output")
